@@ -7,8 +7,15 @@ use App\Models\Chapter;
 use App\Models\Manga;
 use App\Models\View;
 use App\Traits\AuthTrait;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Bus;
+use App\Jobs\UploadImage;
+use Illuminate\Bus\Batch;
+use Throwable;
+use ZipArchive;
 
 class ChapterController extends Controller
 {
@@ -47,5 +54,64 @@ class ChapterController extends Controller
             'data' => $chapter,
             'message' => 'get chapter data success',
         ], 200);
+    }
+
+    public function create(Request $request) {
+        $manga = Manga::findOrFail($request->manga_id);
+        $mangaFolder = explode('/', $manga->thumbnail)[0];
+        $manga_id = $request->manga_id;
+        $name = $request->name;
+        $number = $request->number;
+
+        if ($request->hasFile('images') && $request->by == 'file') {
+            $images = $request->file('images');
+            $batches = [];
+            $count = count($images);
+
+            for($i = 0; $i < count($images); $i++) {
+                $imageName = $i.'.jpg';
+                Redis::set("{$mangaFolder}:{$imageName}", file_get_contents($images[$i]));
+                array_push($batches, new UploadImage("{$mangaFolder}:{$imageName}", $mangaFolder, $number, $imageName));
+            }
+
+            $handler = Bus::batch($batches)
+            ->then(function (Batch $batch) use ($count, $manga_id, $number, $name, $mangaFolder) {
+                    $chapter = Chapter::create([
+                        'manga_id' => $manga_id,
+                        'name' => "Chapter {$number}: {$name}",
+                        'folder' => "{$mangaFolder}/{$number}/",
+                        'amount' => $count,
+                    ]);
+
+                    return response()->json([
+                        'success' => 1,
+                        'data' => $chapter,
+                        'message' => 'chapter created',
+                    ]);
+                }
+            )->catch(function (Batch $batch, Exception $error) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => $error->getMessage(),
+                ]);
+            })->finally(function (Batch $batch) {
+                print_r("done uploading");
+            })->dispatch();
+        } elseif ($request->hasFile('zip') && $request->by == 'zip') {
+            $zip = new ZipArchive;
+            Storage::disk('ftp')->put("/{$mangaFolder}/{$number}/{$number}.zip", file_get_contents($request->zip));
+            if ($zip->open(Storage::disk('ftp')->path("/{$mangaFolder}/{$number}/{$number}.zip")) == true) {
+                $zip->extractTo(Storage::disk('ftp')->path("/{$mangaFolder}/{$number}"));
+                $zip->close();
+            } else {
+                dd("error");
+            }
+        }
+        else {
+            return response()->json([
+                'success' => 0,
+                'message' => 'no images found'
+            ], 422);
+        }
     }
 }
