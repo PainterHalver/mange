@@ -63,55 +63,39 @@ class ChapterController extends Controller
         $name = $request->name;
         $number = $request->number;
 
-        if ($request->hasFile('images') && $request->by == 'file') {
-            $images = $request->file('images');
-            $batches = [];
-            $count = count($images);
+        $images = $request->file('images');
+        $batches = [];
+        $count = count($images);
 
-            for($i = 0; $i < count($images); $i++) {
-                $imageName = $i.'.jpg';
-                Redis::set("{$mangaFolder}:{$imageName}", file_get_contents($images[$i]));
-                array_push($batches, new UploadImage("{$mangaFolder}:{$imageName}", $mangaFolder, $number, $imageName));
-            }
-
-            $handler = Bus::batch($batches)
-            ->then(function (Batch $batch) use ($count, $manga_id, $number, $name, $mangaFolder) {
-                    $chapter = Chapter::create([
-                        'manga_id' => $manga_id,
-                        'name' => "Chapter {$number}: {$name}",
-                        'folder' => "{$mangaFolder}/{$number}/",
-                        'amount' => $count,
-                    ]);
-
-                    return response()->json([
-                        'success' => 1,
-                        'data' => $chapter,
-                        'message' => 'chapter created',
-                    ]);
-                }
-            )->catch(function (Batch $batch, Exception $error) {
-                return response()->json([
-                    'success' => 0,
-                    'message' => $error->getMessage(),
-                ]);
-            })->finally(function (Batch $batch) {
-                print_r("done uploading");
-            })->dispatch();
-        } elseif ($request->hasFile('zip') && $request->by == 'zip') {
-            $zip = new ZipArchive;
-            Storage::disk('ftp')->put("/{$mangaFolder}/{$number}/{$number}.zip", file_get_contents($request->zip));
-            if ($zip->open(Storage::disk('ftp')->path("/{$mangaFolder}/{$number}/{$number}.zip")) == true) {
-                $zip->extractTo(Storage::disk('ftp')->path("/{$mangaFolder}/{$number}"));
-                $zip->close();
-            } else {
-                dd("error");
-            }
+        for($i = 0; $i < count($images); $i++) {
+            $imageName = $i . $images[$i]->getClientOriginalName();
+            $batches[] = new UploadImage($images[$i]->getRealPath(), $mangaFolder, $number, $imageName);
         }
-        else {
+
+        $batch = Bus::batch($batches)->dispatch();
+
+        try {
+            return response()->stream(function () use ($batch) {
+                while ($batch->finished() === false) {
+                    $batch = $batch->fresh();
+                    echo "data: {$batch->processedJobs()}/{$batch->totalJobs} {$batch->progress()}%\n\n";
+                    ob_flush();
+                    flush();
+                    sleep(1);
+                    if (connection_aborted()) {
+                        break;
+                    }
+                }
+            }, 200, [
+                'Cache-Control' => 'no-cache',
+                'Content-Type' => 'text/event-stream',
+                'X-Accel-Buffering' => 'no',
+            ]);
+        } catch (Throwable $e) {
             return response()->json([
                 'success' => 0,
-                'message' => 'no images found'
-            ], 422);
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 }

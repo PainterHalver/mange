@@ -20,15 +20,15 @@ class UploadImage implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    public $file;
+    public $filePath;
     public $mangaFolder;
     public $number;
     public $imageName;
 
-    public function __construct($file, $mangaFolder, $number, $imageName)
+    public function __construct($filePath, $mangaFolder, $number, $imageName)
     {
         //
-        $this->file = $file;
+        $this->filePath = $filePath;
         $this->mangaFolder = $mangaFolder;
         $this->number = $number;
         $this->imageName = $imageName;
@@ -39,14 +39,6 @@ class UploadImage implements ShouldQueue
      */
     public function handle(): void
     {
-        //
-        //dd($this->file);
-        if(! Storage::disk('ftp')->put("/{$this->mangaFolder}/{$this->number}/{$this->imageName}", Redis::get($this->file))) {
-            Storage::disk('ftp')->deleteDirectory("/{$this->mangaFolder}/{$this->number}/");
-            Redis::del($this->file);
-            throw new Exception('failed to upload images');
-        }
-
-        Redis::del($this->file);
+        Storage::disk('ftp')->put("{$this->mangaFolder}/{$this->number}/{$this->imageName}", file_get_contents($this->filePath));
     }
 }

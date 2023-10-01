@@ -16,6 +16,7 @@ php artisan migrate:fresh --seed
 php artisan serve
 
 # Để có thể gửi mail cần config như trong file env.example và chạy lệnh php artisan queue:work --queue=sendingMail
+# Để tự restart queue khi sửa code (chậm hơn queue:work): php artisan queue:listen
 ```
 
 Chạy test, cần cài xdebug dll (windows) hoặc so (linux) để chạy coverage:
