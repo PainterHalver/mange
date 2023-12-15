@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.b54f8b54.css",
-    "main.js": "/static/js/main.884f7e3d.js",
+    "main.js": "/static/js/main.64346277.js",
     "static/js/787.3e88fd70.chunk.js": "/static/js/787.3e88fd70.chunk.js",
     "static/media/banner_drstone.jpg": "/static/media/banner_drstone.0db3e54e5ff918a7e5a9.jpg",
     "static/media/cho-thue-bien-quang-cao.jpg": "/static/media/cho-thue-bien-quang-cao.50e631b621c3942bba10.jpg",
@@ -11,11 +11,11 @@
     "static/media/slick.woff": "/static/media/slick.295183786cd8a1389865.woff",
     "index.html": "/index.html",
     "main.b54f8b54.css.map": "/static/css/main.b54f8b54.css.map",
-    "main.884f7e3d.js.map": "/static/js/main.884f7e3d.js.map",
+    "main.64346277.js.map": "/static/js/main.64346277.js.map",
     "787.3e88fd70.chunk.js.map": "/static/js/787.3e88fd70.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.b54f8b54.css",
-    "static/js/main.884f7e3d.js"
+    "static/js/main.64346277.js"
   ]
 }
